@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>飛行機メガネ - ステップ1: 現在地取得</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      background: #0a0f1e;
+      color: #e8f0fe;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #7ab4ff;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: #556080;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    /* ---- ボタン ---- */
+    .btn {
+      display: inline-block;
+      padding: 18px 40px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(0.96); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d9bf0);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(29,155,240,0.45);
+    }
+
+    .btn-retry {
+      background: linear-gradient(135deg, #166534, #22c55e);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(34,197,94,0.35);
+      font-size: 1rem;
+      padding: 14px 32px;
+      margin-top: 28px;
+    }
+
+    /* ---- 取得中スピナー ---- */
+    #status {
+      font-size: 1rem;
+      color: #7ab4ff;
+      min-height: 28px;
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 3px solid #223355;
+      border-top-color: #7ab4ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- 結果カード ---- */
+    #result {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 24px;
+      display: none;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1e3a5f;
+      border-radius: 16px;
+      padding: 20px 22px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 12px 0;
+      border-bottom: 1px solid #1a2540;
+    }
+    .row:last-child { border-bottom: none; }
+
+    .label {
+      font-size: 0.85rem;
+      color: #556080;
+      flex-shrink: 0;
+      margin-right: 12px;
+    }
+
+    .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #e8f0fe;
+      text-align: right;
+      word-break: break-all;
+    }
+
+    .value.accent { color: #7ab4ff; }
+    .value.small  { font-size: 1.1rem; }
+
+    /* ---- エラー ---- */
+    #error {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 24px;
+      display: none;
+      background: #1f0a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 16px;
+      padding: 20px 22px;
+    }
+
+    #error .error-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f87171;
+      margin-bottom: 10px;
+    }
+
+    #error .error-body {
+      font-size: 0.95rem;
+      color: #fca5a5;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>✈ 飛行機メガネ</h1>
+  <p class="subtitle">ステップ 1 ― 現在地の取得</p>
+
+  <button id="getBtn" class="btn btn-primary" onclick="getLocation()">
+    📍 位置情報を取得
+  </button>
+
+  <div id="status"></div>
+
+  <!-- エラー表示 -->
+  <div id="error">
+    <div class="error-title">⚠️ エラー</div>
+    <div id="errorBody" class="error-body"></div>
+  </div>
+
+  <!-- 結果表示 -->
+  <div id="result">
+    <div class="card">
+      <div class="row">
+        <span class="label">緯度</span>
+        <span id="lat" class="value accent"></span>
+      </div>
+      <div class="row">
+        <span class="label">経度</span>
+        <span id="lon" class="value accent"></span>
+      </div>
+      <div class="row">
+        <span class="label">標高</span>
+        <span id="alt" class="value"></span>
+      </div>
+      <div class="row">
+        <span class="label">精度</span>
+        <span id="acc" class="value"></span>
+      </div>
+      <div class="row">
+        <span class="label">取得日時</span>
+        <span id="ts" class="value small"></span>
+      </div>
+    </div>
+
+    <div style="text-align:center">
+      <button class="btn btn-retry" onclick="getLocation()">🔄 再取得</button>
+    </div>
+  </div>
+
+  <script>
+    function showStatus(html) {
+      document.getElementById('status').innerHTML = html;
+    }
+
+    function showError(msg) {
+      showStatus('');
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('errorBody').textContent = msg;
+    }
+
+    function showResult(pos) {
+      const c = pos.coords;
+
+      document.getElementById('lat').textContent =
+        c.latitude.toFixed(6) + '°';
+      document.getElementById('lon').textContent =
+        c.longitude.toFixed(6) + '°';
+      document.getElementById('alt').textContent =
+        c.altitude !== null ? c.altitude.toFixed(1) + ' m' : '取得不可';
+      document.getElementById('acc').textContent =
+        '± ' + Math.round(c.accuracy) + ' m';
+
+      const d = new Date(pos.timestamp);
+      document.getElementById('ts').textContent =
+        d.toLocaleDateString('ja-JP') + ' ' + d.toLocaleTimeString('ja-JP');
+
+      showStatus('');
+      document.getElementById('error').style.display = 'none';
+      document.getElementById('result').style.display = 'block';
+    }
+
+    function geolocationError(err) {
+      const messages = {
+        1: '位置情報の利用が拒否されました。\nブラウザの設定から「位置情報」の許可を確認してください。',
+        2: '位置情報を取得できませんでした。\nGPS 電波が届かない場所か、デバイスが位置情報に対応していない可能性があります。',
+        3: '取得がタイムアウトしました。\n電波状況を確認してもう一度お試しください。',
+      };
+      showError(messages[err.code] || `不明なエラーが発生しました（コード: ${err.code}）`);
+    }
+
+    function getLocation() {
+      if (!navigator.geolocation) {
+        showError('このブラウザは位置情報 API に対応していません。\nChromeなど対応ブラウザでお試しください。');
+        return;
+      }
+
+      document.getElementById('error').style.display  = 'none';
+      document.getElementById('result').style.display = 'none';
+      showStatus('<span class="spinner"></span>取得中…');
+
+      navigator.geolocation.getCurrentPosition(
+        showResult,
+        geolocationError,
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+  </script>
+</body>
+</html>
