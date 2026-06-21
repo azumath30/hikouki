@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>飛行機メガネ Step.3</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      background: #0a0f1e;
+      color: #e8f0fe;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 56px;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #7ab4ff;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: #556080;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    /* ---- ボタン ---- */
+    .btn {
+      display: inline-block;
+      padding: 18px 40px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s, opacity 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active   { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d9bf0);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(29, 155, 240, 0.45);
+    }
+    .btn-retry {
+      background: linear-gradient(135deg, #166534, #22c55e);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.35);
+      font-size: 1rem;
+      padding: 14px 32px;
+      margin-top: 28px;
+    }
+    .btn-plane {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      color: #fff;
+      font-size: 1rem;
+      padding: 16px 36px;
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+    }
+
+    /* ---- ステータス / スピナー ---- */
+    #status {
+      font-size: 1rem;
+      color: #7ab4ff;
+      min-height: 28px;
+      margin-top: 16px;
+      text-align: center;
+    }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2.5px solid #223355;
+      border-top-color: #7ab4ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 7px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- 位置情報結果カード ---- */
+    #result {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 24px;
+      display: none;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1e3a5f;
+      border-radius: 16px;
+      padding: 20px 22px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 12px 0;
+      border-bottom: 1px solid #1a2540;
+    }
+    .row:last-child { border-bottom: none; }
+    .label {
+      font-size: 0.85rem;
+      color: #556080;
+      flex-shrink: 0;
+      margin-right: 12px;
+    }
+    .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #e8f0fe;
+      text-align: right;
+      word-break: break-all;
+    }
+    .value.accent { color: #7ab4ff; }
+    .value.small  { font-size: 1.1rem; }
+
+    /* ---- エラー（位置情報） ---- */
+    #error {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 24px;
+      display: none;
+      background: #1f0a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 16px;
+      padding: 20px 22px;
+    }
+    #error .error-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f87171;
+      margin-bottom: 10px;
+    }
+    #error .error-body {
+      font-size: 0.95rem;
+      color: #fca5a5;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    /* ---- 飛行機セクション ---- */
+    #planeSection {
+      display: none;
+      width: 100%;
+      max-width: 480px;
+      margin-top: 32px;
+    }
+
+    /* 検索半径 */
+    .radius-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      color: #aab4cc;
+      text-align: center;
+    }
+    .radius-row select {
+      background: #1a2540;
+      color: #e8f0fe;
+      border: 1px solid #2a3a5a;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.9rem;
+    }
+
+    /* 飛行機ステータス */
+    #planeStatus {
+      font-size: 0.95rem;
+      color: #7ab4ff;
+      min-height: 26px;
+      margin: 12px 0;
+      text-align: center;
+    }
+
+    /* エラー（飛行機） */
+    #planeErr {
+      display: none;
+      background: #1f0a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin: 8px 0;
+    }
+    #planeErr .pe-title { font-weight: 700; color: #f87171; margin-bottom: 6px; font-size: 0.95rem; }
+    #planeErr .pe-body  { color: #fca5a5; font-size: 0.88rem; line-height: 1.65; white-space: pre-wrap; }
+
+    /* 飛行機リスト */
+    #planeList { margin-top: 4px; }
+
+    .plane-header {
+      font-size: 0.85rem;
+      color: #7ab4ff;
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+    .proxy-note {
+      font-size: 0.75rem;
+      color: #556080;
+      margin-left: 8px;
+    }
+
+    .plane-card {
+      background: #111827;
+      border: 1px solid #1e3057;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+    .plane-callsign {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #e8f0fe;
+      margin-bottom: 2px;
+    }
+    .plane-dist {
+      font-size: 0.88rem;
+      color: #a78bfa;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .plane-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 16px;
+      font-size: 0.83rem;
+      color: #aab4cc;
+    }
+
+    .no-planes {
+      text-align: center;
+      color: #556080;
+      font-size: 0.95rem;
+      padding: 36px 0;
+    }
+
+    /* クレジット */
+    .credit {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 0.72rem;
+      color: #334466;
+    }
+    .credit a { color: #4466aa; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <h1>✈ 飛行機メガネ</h1>
+  <p class="subtitle">ステップ 3 ― 近くの飛行機を探す</p>
+
+  <!-- 位置情報取得（index.html と同じ） -->
+  <button id="getBtn" class="btn btn-primary" onclick="getLocation()">
+    📍 位置情報を取得
+  </button>
+
+  <div id="status"></div>
+
+  <div id="error">
+    <div class="error-title">⚠️ エラー</div>
+    <div id="errorBody" class="error-body"></div>
+  </div>
+
+  <div id="result">
+    <div class="card">
+      <div class="row">
+        <span class="label">緯度</span>
+        <span id="lat" class="value accent"></span>
+      </div>
+      <div class="row">
+        <span class="label">経度</span>
+        <span id="lon" class="value accent"></span>
+      </div>
+      <div class="row">
+        <span class="label">標高</span>
+        <span id="alt" class="value"></span>
+      </div>
+      <div class="row">
+        <span class="label">精度</span>
+        <span id="acc" class="value"></span>
+      </div>
+      <div class="row">
+        <span class="label">取得日時</span>
+        <span id="ts" class="value small"></span>
+      </div>
+    </div>
+    <div style="text-align:center">
+      <button class="btn btn-retry" onclick="getLocation()">🔄 再取得</button>
+    </div>
+  </div>
+
+  <!-- 飛行機セクション（位置取得後に表示） -->
+  <div id="planeSection">
+    <div class="radius-row">
+      <span>検索半径</span>
+      <select id="radiusSelect">
+        <option value="50">50 海里 (93 km)</option>
+        <option value="100" selected>100 海里 (185 km)</option>
+        <option value="150">150 海里 (278 km)</option>
+        <option value="200">200 海里 (370 km)</option>
+        <option value="250">250 海里 (463 km)</option>
+      </select>
+    </div>
+
+    <div style="text-align:center">
+      <button id="planeBtn" class="btn btn-plane" onclick="fetchAircraft()">✈ 飛行機を更新</button>
+    </div>
+
+    <div id="planeStatus"></div>
+
+    <div id="planeErr">
+      <div class="pe-title">⚠️ 取得エラー</div>
+      <div id="planeErrBody" class="pe-body"></div>
+    </div>
+
+    <div id="planeList"></div>
+
+    <p class="credit">データ提供: <a href="https://adsb.lol" target="_blank" rel="noopener">adsb.lol</a></p>
+  </div>
+
+  <script>
+    /* ===== 定数 ===== */
+    const NM_TO_KM = 1.852;
+    const FT_TO_M  = 0.3048;
+    const API_BASE = 'https://api.adsb.lol/v2/lat';
+    const PROXY    = 'https://api.allorigins.win/raw?url=';
+
+    let myLat = null, myLon = null;
+
+    /* ===== 位置情報（index.html と同じ） ===== */
+
+    function showStatus(html) {
+      document.getElementById('status').innerHTML = html;
+    }
+
+    function showError(msg) {
+      showStatus('');
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('errorBody').textContent = msg;
+    }
+
+    function showResult(pos) {
+      const c = pos.coords;
+      myLat = c.latitude;
+      myLon = c.longitude;
+
+      document.getElementById('lat').textContent = c.latitude.toFixed(6) + '°';
+      document.getElementById('lon').textContent = c.longitude.toFixed(6) + '°';
+      document.getElementById('alt').textContent =
+        c.altitude !== null ? c.altitude.toFixed(1) + ' m' : '取得不可';
+      document.getElementById('acc').textContent = '± ' + Math.round(c.accuracy) + ' m';
+
+      const d = new Date(pos.timestamp);
+      document.getElementById('ts').textContent =
+        d.toLocaleDateString('ja-JP') + ' ' + d.toLocaleTimeString('ja-JP');
+
+      showStatus('');
+      document.getElementById('error').style.display  = 'none';
+      document.getElementById('result').style.display = 'block';
+
+      // 位置が取れたら飛行機セクションを表示
+      document.getElementById('planeSection').style.display = 'block';
+    }
+
+    function geolocationError(err) {
+      const messages = {
+        1: '位置情報の利用が拒否されました。\nブラウザの設定から「位置情報」の許可を確認してください。',
+        2: '位置情報を取得できませんでした。\nGPS 電波が届かない場所か、デバイスが位置情報に対応していない可能性があります。',
+        3: '取得がタイムアウトしました。\n電波状況を確認してもう一度お試しください。',
+      };
+      showError(messages[err.code] || `不明なエラーが発生しました（コード: ${err.code}）`);
+    }
+
+    function getLocation() {
+      if (!navigator.geolocation) {
+        showError('このブラウザは位置情報 API に対応していません。\nChromeなど対応ブラウザでお試しください。');
+        return;
+      }
+      document.getElementById('error').style.display  = 'none';
+      document.getElementById('result').style.display = 'none';
+      showStatus('<span class="spinner"></span>取得中…');
+
+      navigator.geolocation.getCurrentPosition(
+        showResult,
+        geolocationError,
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    /* ===== 飛行機取得 ===== */
+
+    function setPlaneStatus(html) { document.getElementById('planeStatus').innerHTML = html; }
+    function clearPlaneErr()      { document.getElementById('planeErr').style.display = 'none'; }
+    function setPlaneErr(msg) {
+      setPlaneStatus('');
+      document.getElementById('planeErrBody').textContent = msg;
+      document.getElementById('planeErr').style.display = 'block';
+    }
+    function setPlaneBtn(disabled) {
+      document.getElementById('planeBtn').disabled = disabled;
+    }
+
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // 方位角(度)を16方位の漢字に変換
+    function dirLabel(deg) {
+      if (deg == null) return '不明';
+      const labels = ['北','北北東','北東','東北東','東','東南東','南東','南南東',
+                      '南','南南西','南西','西南西','西','西北西','北西','北北西'];
+      const idx = Math.round(deg / 22.5) % 16;
+      return `${Math.round(deg)}° (${labels[idx]})`;
+    }
+
+    async function fetchAircraft() {
+      if (myLat === null || myLon === null) return;
+
+      clearPlaneErr();
+      document.getElementById('planeList').innerHTML = '';
+      setPlaneStatus('<span class="spinner"></span>adsb.lol に問い合わせ中…');
+      setPlaneBtn(true);
+
+      const radius = parseInt(document.getElementById('radiusSelect').value) || 100;
+      const url    = `${API_BASE}/${myLat.toFixed(6)}/lon/${myLon.toFixed(6)}/dist/${radius}`;
+
+      const ctrl  = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20000);
+
+      let data, proxyUsed = false;
+
+      // 直接アクセスを試みる
+      try {
+        const resp = await fetch(url, { signal: ctrl.signal });
+        if (resp.status === 429) throw new Error('RATE_LIMIT');
+        if (!resp.ok) throw new Error(`HTTP_${resp.status}`);
+        data = await resp.json();
+      } catch (e1) {
+        if (e1.name === 'AbortError') {
+          clearTimeout(timer);
+          setPlaneErr('タイムアウトしました。電波状況を確認して再度お試しください。');
+          setPlaneBtn(false);
+          return;
+        }
+        if (e1.message === 'RATE_LIMIT') {
+          clearTimeout(timer);
+          setPlaneErr('アクセス制限中です。数秒待って再度お試しください。');
+          setPlaneBtn(false);
+          return;
+        }
+
+        // ネットワークエラー(CORS含む)→ プロキシ経由で再試行
+        setPlaneStatus('<span class="spinner"></span>プロキシ経由で再試行中…');
+        try {
+          const proxyUrl  = PROXY + encodeURIComponent(url);
+          const resp2 = await fetch(proxyUrl, { signal: ctrl.signal });
+          if (resp2.status === 429) throw new Error('RATE_LIMIT');
+          if (!resp2.ok) throw new Error(`HTTP_${resp2.status}`);
+          data      = await resp2.json();
+          proxyUsed = true;
+        } catch (e2) {
+          clearTimeout(timer);
+          if (e2.name === 'AbortError') {
+            setPlaneErr('タイムアウトしました。電波状況を確認して再度お試しください。');
+          } else if (e2.message === 'RATE_LIMIT') {
+            setPlaneErr('アクセス制限中です。数秒待って再度お試しください。');
+          } else {
+            setPlaneErr(
+              '直接接続・プロキシ経由ともに失敗しました。\n'
+              + 'インターネット接続を確認してください。\n'
+              + `(直接: ${e1.message} / プロキシ: ${e2.message})`
+            );
+          }
+          setPlaneBtn(false);
+          return;
+        }
+      }
+
+      clearTimeout(timer);
+      setPlaneStatus('');
+      setPlaneBtn(false);
+      renderPlanes(data, proxyUsed);
+    }
+
+    /* ===== 描画 ===== */
+
+    function renderPlanes(data, proxyUsed) {
+      const aircraft  = data.ac || [];
+      const fetchTime = new Date().toLocaleTimeString('ja-JP');
+      const listEl    = document.getElementById('planeList');
+
+      // フィルタ: 地上・位置不明を除外、距離の近い順
+      const planes = aircraft
+        .filter(ac => ac.alt_baro !== 'ground' && ac.lat != null && ac.lon != null)
+        .sort((a, b) => (a.dst ?? Infinity) - (b.dst ?? Infinity));
+
+      if (planes.length === 0) {
+        listEl.innerHTML = '<p class="no-planes">近くに飛行機は見つかりませんでした</p>';
+        return;
+      }
+
+      // 件数ヘッダー
+      const header = document.createElement('p');
+      header.className = 'plane-header';
+      header.innerHTML =
+        `${planes.length}機を検出（取得時刻 ${fetchTime}）`
+        + (proxyUsed ? '<span class="proxy-note">プロキシ経由で取得</span>' : '');
+      listEl.appendChild(header);
+
+      // 機体カード
+      for (const ac of planes) {
+        const callsign = (ac.flight || '').trim() || '不明';
+
+        // 高度: 幾何高度優先、なければ気圧高度(フィート→m)
+        const altFt  = ac.alt_geom != null ? ac.alt_geom : ac.alt_baro;
+        const altStr = (altFt != null && altFt !== 'ground')
+                       ? `${Math.round(altFt * FT_TO_M).toLocaleString()} m`
+                       : '不明';
+
+        // 速度(ノット→km/h)
+        const spdStr = ac.gs != null
+                       ? `${Math.round(ac.gs * NM_TO_KM)} km/h`
+                       : '不明';
+
+        // 距離(海里→km)
+        const distStr = ac.dst != null
+                        ? `${(ac.dst * NM_TO_KM).toFixed(1)} km`
+                        : '不明';
+
+        // 進行方向・方位
+        const trkStr = ac.track != null ? `${Math.round(ac.track)}°` : '不明';
+        const bearStr = dirLabel(ac.dir);
+
+        const card = document.createElement('div');
+        card.className = 'plane-card';
+        card.innerHTML =
+          `<div class="plane-callsign">${escHtml(callsign)}</div>`
+        + `<div class="plane-dist">📍 ${distStr}</div>`
+        + `<div class="plane-stats">`
+        +   `<span>🏔 高度 ${altStr}</span>`
+        +   `<span>💨 速度 ${spdStr}</span>`
+        +   `<span>🧭 進行 ${trkStr}</span>`
+        +   `<span>📡 方位 ${bearStr}</span>`
+        + `</div>`;
+        listEl.appendChild(card);
+      }
+    }
+  </script>
+</body>
+</html>
